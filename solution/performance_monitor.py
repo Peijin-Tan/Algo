@@ -25,11 +25,60 @@ def calculate_metrics(
     """
 
     # Illustration only: replace or extend this with your chosen metric.
-    number_of_trips = 0
+    
+def calculate_metrics(
+    parcels: List[Dict[str, str]],
+    distances: List[Dict[str, str]],
+    config: Dict[str, Any],
+    events: List[Dict[str, Any]],
+) -> Dict[str, Any]:
+    """Calculate the on-time delivery rate for one simulation run."""
+
+    # Convert HH:MM strings into minutes after midnight.
+    def time_to_minutes(time_str: str) -> int:
+        hours, minutes = map(int, time_str.split(":"))
+        return hours * 60 + minutes
+
+    # Store each parcel's preferred delivery window.
+    delivery_windows = {}
+
+    for parcel in parcels:
+        parcel_id = parcel["parcel_id"]
+
+        delivery_windows[parcel_id] = (
+            time_to_minutes(parcel["delivery_window_start"]),
+            time_to_minutes(parcel["delivery_window_end"]),
+        )
+
+    # Record the actual delivery time of each delivered parcel.
+    delivery_times = {}
+
     for event in events:
-        if event["event_type"] == "hub_departure":
-            number_of_trips += 1
-    return {"number_of_trips": number_of_trips}
+        if event["event_type"] == "delivery":
+            delivery_times[event["parcel_id"]] = event["time"]
+
+    # Count parcels delivered within their preferred windows.
+    on_time_count = 0
+    total_parcels = len(parcels)
+
+    for parcel_id, (window_start, window_end) in delivery_windows.items():
+        actual_time = delivery_times.get(parcel_id)
+
+        # Undelivered parcels are not counted as on-time deliveries.
+        if actual_time is None:
+            continue
+
+        if window_start <= actual_time <= window_end:
+            on_time_count += 1
+
+    # Return a rate between 0 and 1.
+    on_time_delivery_rate = (
+        on_time_count / total_parcels if total_parcels > 0 else 0.0
+    )
+
+    return {
+        "on_time_delivery_rate": on_time_delivery_rate
+    }
 
 
 def main(argv: Optional[List[str]] = None) -> int:
